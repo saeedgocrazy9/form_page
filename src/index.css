@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,600&family=DM+Sans:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --red: #E24B4A;
+  --red-light: #FCEBEB;
+  --red-dark: #791F1F;
+  --amber: #EF9F27;
+  --amber-light: #FAEEDA;
+  --green: #1D9E75;
+  --green-light: #E1F5EE;
+  --gray-50: #F8F7F4;
+  --gray-100: #EEECEA;
+  --gray-300: #C4C2BA;
+  --gray-500: #888780;
+  --gray-700: #444441;
+  --gray-900: #1A1A18;
+  --border: 0.5px solid #DDDBD4;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --page-max: 780px;
+  --page-pad: 24px;
+}
+
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-900);
+  line-height: 1.6;
+}
+
+h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 600; }
+code, .mono { font-family: 'DM Mono', monospace; }
+
+@media (max-width: 480px) {
+  :root { --page-pad: 14px; }
+}
