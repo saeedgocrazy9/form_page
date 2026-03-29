@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
+import { useState, useRef } from 'react'
 
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Libre+Baskerville:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -227,31 +225,8 @@ function SectionHead({ num, title, desc, color }) {
   )
 }
 
-const API_BASE = 'http://localhost:5000/api'
-
-function getTransferIdFromPath() {
-  const path = window.location.pathname || ''
-  const parts = path.split('/').filter(Boolean)
-  if (parts.length >= 2 && parts[0] === 'transfer-id' && parts[1]) {
-    return decodeURIComponent(parts[1])
-  }
-  return ''
-}
-
-function firstNonEmptyString(...values) {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim()) return value.trim()
-  }
-  return ''
-}
-
-export default function TransferRecord() {
+export default function TransferForm() {
   const [error, setError] = useState('')
-  const [loadingRecord, setLoadingRecord] = useState(true)
-  const [savingRecord, setSavingRecord] = useState(false)
-  const [saveMessage, setSaveMessage] = useState('')
-  const [loadedTransferID, setLoadedTransferID] = useState('')
-  const [savingPdf, setSavingPdf] = useState(false)
   const formRef = useRef(null)
 
   const [patient, setPatient] = useState({ name: '', age: '', gender: 'Male', patientID: '' })
@@ -272,114 +247,6 @@ export default function TransferRecord() {
     sendingHospitalID: '', doctorName: '', doctorID: '',
     receivingHospitalName: '', receivingHospitalID: '', receivingDepartment: '',
   })
-
-  useEffect(() => {
-    let mounted = true
-
-    async function loadRecord() {
-      try {
-        setLoadingRecord(true)
-        setError('')
-        const transferIDFromPath = getTransferIdFromPath()
-        const endpoint = transferIDFromPath
-          ? `${API_BASE}/transfers/${transferIDFromPath}`
-          : `${API_BASE}/transfers-latest`
-
-        const response = await fetch(endpoint)
-        if (!response.ok) {
-          throw new Error(transferIDFromPath ? 'Transfer record not found.' : 'No transfer records found.')
-        }
-
-        const record = await response.json()
-        if (!mounted || !record) return
-
-        const incomingTransferID = firstNonEmptyString(
-          record.transfer?.transferID,
-          transferIDFromPath,
-        )
-        setLoadedTransferID(incomingTransferID)
-
-        setPatient({
-          name: firstNonEmptyString(record.patient?.name),
-          age: record.patient?.age ?? '',
-          gender: firstNonEmptyString(record.patient?.gender) || 'Male',
-          patientID: firstNonEmptyString(record.patient?.patientID),
-        })
-
-        const incomingVitals = record.vitals || {}
-        setVitals({
-          bp: firstNonEmptyString(incomingVitals.bp),
-          pulse: firstNonEmptyString(incomingVitals.pulse),
-          spo2: firstNonEmptyString(incomingVitals.spo2),
-          temp: firstNonEmptyString(incomingVitals.temp),
-          rr: firstNonEmptyString(incomingVitals.rr),
-          gcs: firstNonEmptyString(incomingVitals.gcs),
-        })
-
-        const incomingAllergies = Array.isArray(record.critical?.allergies) && record.critical.allergies.length
-          ? record.critical.allergies.map((item) => ({
-              name: firstNonEmptyString(item?.name),
-              severity: firstNonEmptyString(item?.severity) || 'Moderate',
-              reaction: firstNonEmptyString(item?.reaction),
-            }))
-          : [{ name: '', severity: 'Moderate', reaction: '' }]
-
-        const incomingMeds = Array.isArray(record.critical?.activeMedications) && record.critical.activeMedications.length
-          ? record.critical.activeMedications.map((item) => ({
-              name: firstNonEmptyString(item?.name),
-              dose: firstNonEmptyString(item?.dose),
-              route: firstNonEmptyString(item?.route) || 'Oral',
-              frequency: firstNonEmptyString(item?.frequency),
-              mustNotStop: Boolean(item?.mustNotStop),
-            }))
-          : [{ name: '', dose: '', route: 'Oral', frequency: '', mustNotStop: false }]
-
-        setCritical({
-          primaryDiagnosis: firstNonEmptyString(record.critical?.primaryDiagnosis),
-          transferReason: firstNonEmptyString(record.critical?.transferReason),
-          allergies: incomingAllergies,
-          activeMedications: incomingMeds,
-        })
-
-        const toStringList = (value) => {
-          if (!Array.isArray(value)) return ['']
-          const normalized = value
-            .map((item) => (typeof item === 'string' ? item : ''))
-            .filter((item) => item.trim())
-          return normalized.length ? normalized : ['']
-        }
-
-        setClinical({
-          clinicalSummary: firstNonEmptyString(record.clinical?.clinicalSummary),
-          recentInvestigations: toStringList(record.clinical?.recentInvestigations),
-          pastMedicalHistory: toStringList(record.clinical?.pastMedicalHistory),
-          surgicalHistory: toStringList(record.clinical?.surgicalHistory),
-        })
-
-        setFacility({
-          sendingHospitalID: firstNonEmptyString(record.sendingFacility?.hospitalID),
-          doctorName: firstNonEmptyString(record.sendingFacility?.doctorName),
-          doctorID: firstNonEmptyString(record.sendingFacility?.doctorID),
-          receivingHospitalName: firstNonEmptyString(record.receivingFacility?.hospitalName),
-          receivingHospitalID: firstNonEmptyString(record.receivingFacility?.hospitalID),
-          receivingDepartment: firstNonEmptyString(record.receivingFacility?.department),
-        })
-      } catch (loadErr) {
-        if (mounted) {
-          setError(loadErr.message || 'Failed to load transfer record.')
-        }
-      } finally {
-        if (mounted) {
-          setLoadingRecord(false)
-        }
-      }
-    }
-
-    loadRecord()
-    return () => {
-      mounted = false
-    }
-  }, [])
 
   const setVital = (k, v) => setVitals(p => ({ ...p, [k]: v }))
   const setP = (k, v) => setPatient(p => ({ ...p, [k]: v }))
@@ -416,191 +283,17 @@ export default function TransferRecord() {
 
   function handlePrint() {
     const err = validate()
-    if (err) {
-      setError(err)
-      window.scrollTo(0, 0)
-      window.alert(err)
-      return
-    }
+    if (err) { setError(err); window.scrollTo(0, 0); return }
     setError('')
     window.print()
   }
 
-  async function handleSaveToBackend() {
-    if (savingRecord) return
-
+  function handleSave() {
     const err = validate()
-    if (err) {
-      setError(err)
-      window.scrollTo(0, 0)
-      window.alert(err)
-      return
-    }
-
+    if (err) { setError(err); window.scrollTo(0, 0); return }
     setError('')
-    setSaveMessage('')
-    setSavingRecord(true)
-    try {
-      const payload = {
-        transferID: loadedTransferID || undefined,
-        patientName: patient.name.trim(),
-        age: patient.age,
-        gender: patient.gender,
-        patientID: patient.patientID.trim(),
-        transferReason: critical.transferReason.trim(),
-        primaryDiagnosis: critical.primaryDiagnosis.trim(),
-        allergies: critical.allergies
-          .map((item) => ({
-            name: item.name.trim(),
-            severity: item.severity,
-            reaction: item.reaction.trim(),
-          }))
-          .filter((item) => item.name),
-        activeMedications: critical.activeMedications
-          .map((item) => ({
-            name: item.name.trim(),
-            dose: item.dose.trim(),
-            route: item.route,
-            frequency: item.frequency.trim(),
-            mustNotStop: Boolean(item.mustNotStop),
-          }))
-          .filter((item) => item.name),
-        clinicalSummary: clinical.clinicalSummary.trim(),
-        recentInvestigations: clinical.recentInvestigations.map((item) => item.trim()).filter(Boolean),
-        pastMedicalHistory: clinical.pastMedicalHistory.map((item) => item.trim()).filter(Boolean),
-        surgicalHistory: clinical.surgicalHistory.map((item) => item.trim()).filter(Boolean),
-        sendingHospitalID: facility.sendingHospitalID.trim(),
-        doctorName: facility.doctorName.trim(),
-        doctorID: facility.doctorID.trim(),
-        receivingHospitalName: facility.receivingHospitalName.trim(),
-        receivingHospitalID: facility.receivingHospitalID.trim(),
-        receivingDepartment: facility.receivingDepartment.trim(),
-        vitals: {
-          bp: vitals.bp,
-          pulse: vitals.pulse,
-          spo2: vitals.spo2,
-          temp: vitals.temp,
-          rr: vitals.rr,
-          gcs: vitals.gcs,
-        },
-      }
-
-      const response = await fetch(`${API_BASE}/transfers`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      const result = await response.json()
-      if (!response.ok) {
-        throw new Error(result?.error || 'Failed to save transfer record.')
-      }
-
-      const transferID = firstNonEmptyString(result?.transferID, payload.transferID)
-      if (transferID) setLoadedTransferID(transferID)
-      setSaveMessage(`Saved to backend${transferID ? ` • Transfer ID: ${transferID}` : ''}`)
-    } catch (saveErr) {
-      setError(saveErr.message || 'Failed to save transfer record.')
-      window.scrollTo(0, 0)
-    } finally {
-      setSavingRecord(false)
-    }
-  }
-
-  function saveFallbackPdf(stamp) {
-    const pdf = new jsPDF('p', 'mm', 'a4')
-    const lines = [
-      'Emergency Patient Transfer Intake Form',
-      '',
-      `Generated: ${new Date().toLocaleString('en-IN')}`,
-      `Patient Name: ${patient.name || 'N/A'}`,
-      `Patient ID: ${patient.patientID || 'N/A'}`,
-      `Age/Gender: ${patient.age || 'N/A'} / ${patient.gender || 'N/A'}`,
-      `Primary Diagnosis: ${critical.primaryDiagnosis || 'N/A'}`,
-      `Transfer Reason: ${critical.transferReason || 'N/A'}`,
-      `Sending Hospital ID: ${facility.sendingHospitalID || 'N/A'}`,
-      `Receiving Hospital: ${facility.receivingHospitalName || 'N/A'}`,
-      `Receiving Department: ${facility.receivingDepartment || 'N/A'}`,
-      '',
-      'Clinical Summary:',
-      clinical.clinicalSummary || 'N/A',
-    ]
-
-    let y = 14
-    lines.forEach((line) => {
-      if (y > 285) {
-        pdf.addPage()
-        y = 14
-      }
-      pdf.text(String(line), 12, y)
-      y += 7
-    })
-
-    const safePatientId = (patient.patientID || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '')
-    const filename = `Transfer_Report_${safePatientId}_${stamp}.pdf`
-    pdf.save(filename)
-  }
-
-  async function handleSave() {
-    if (savingPdf) return
-
-    const err = validate()
-    if (err) {
-      setError(err)
-      window.scrollTo(0, 0)
-      window.alert(err)
-      return
-    }
-    setError('')
-
-    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '')
-
-    if (!formRef.current) {
-      setError('Unable to capture form for PDF export.')
-      saveFallbackPdf(stamp)
-      return
-    }
-
-    setSavingPdf(true)
-    try {
-      const canvas = await html2canvas(formRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        windowWidth: formRef.current.scrollWidth,
-      })
-
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-
-      const pageWidth = 210
-      const pageHeight = 297
-      const margin = 8
-      const contentWidth = pageWidth - margin * 2
-      const contentHeight = (canvas.height * contentWidth) / canvas.width
-      const printableHeight = pageHeight - margin * 2
-
-      let renderedHeight = 0
-      pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight)
-      renderedHeight += printableHeight
-
-      while (renderedHeight < contentHeight) {
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', margin, margin - renderedHeight, contentWidth, contentHeight)
-        renderedHeight += printableHeight
-      }
-
-      const safePatientId = (patient.patientID || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '')
-      const safeTransferId = (facility.receivingHospitalID || 'transfer').replace(/[^a-zA-Z0-9_-]/g, '')
-      const filename = `Transfer_Report_${safePatientId}_${safeTransferId}_${stamp}.pdf`
-      pdf.save(filename)
-    } catch (pdfError) {
-      setError(`Canvas export failed. Downloaded fallback PDF instead. (${pdfError.message || 'Unknown error'})`)
-      saveFallbackPdf(stamp)
-      window.scrollTo(0, 0)
-    } finally {
-      setSavingPdf(false)
-    }
+    // Save as PDF via print dialog with PDF destination
+    window.print()
   }
 
   const printDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -654,10 +347,7 @@ export default function TransferRecord() {
 
         <div className="tf-body">
 
-          {loadingRecord && <div className="tf-card" style={{ marginBottom: 20 }}>Loading transfer data from backend...</div>}
-
           {error && <div className="tf-error">⚠ {error}</div>}
-          {saveMessage && <div className="tf-card" style={{ marginBottom: 20, borderColor: '#B7DEC6', background: '#F1FAF4', color: '#1A7A4A' }}>{saveMessage}</div>}
 
           {/* 01 Patient */}
           <div className="tf-section">
@@ -888,17 +578,14 @@ export default function TransferRecord() {
         {/* Bottom bar */}
         <div className="tf-bottom-bar">
           <div className="tf-bottom-info">
-            Fill all required fields, then <strong>Save to Backend</strong>, <strong>Print</strong>, or <strong>Save as PDF</strong>
+            Fill all required fields, then <strong>Print</strong> or <strong>Save as PDF</strong>
           </div>
           <div className="tf-bottom-btns">
-            <button type="button" className="tf-btn-print" onClick={handleSaveToBackend}>
-              {savingRecord ? 'Saving...' : 'Save to Backend'}
-            </button>
-            <button type="button" className="tf-btn-print" onClick={handlePrint}>
+            <button className="tf-btn-print" onClick={handlePrint}>
               🖨 Print Report
             </button>
-            <button type="button" className="tf-btn-save" onClick={handleSave}>
-              {savingPdf ? 'Generating PDF...' : '↓ Save as PDF'}
+            <button className="tf-btn-save" onClick={handleSave}>
+              ↓ Save as PDF
             </button>
           </div>
         </div>
