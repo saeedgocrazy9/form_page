@@ -4,10 +4,10 @@ import cors from 'cors'
 import { sendAcknowledgementNotification, sendTestEmail, verifyEmailConfig } from './emailService.js'
 
 const app = express()
-const PORT = 5000
+const PORT = process.env.PORT || 3000
 
 // MongoDB connection
-const MONGO_URI = 'mongodb+srv://amankhan:aman@expensetracker.wyvfc2h.mongodb.net/'
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://amankhan:aman@expensetracker.wyvfc2h.mongodb.net/'
 const DB_NAME = 'medico'
 const COLLECTION_NAME = 'transfers'
 
